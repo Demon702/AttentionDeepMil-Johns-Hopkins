@@ -60,7 +60,7 @@ class MnistBags(data_utils.Dataset):
                     transforms.ToTensor(),
                 ])
             # color_jitter = transforms.ColorJitter(brightness=0.3, contrast=0.2, saturation=0.1, hue=0.1)
-            test_dataset = datasets.ImageFolder(root='test',
+            test_dataset = datasets.ImageFolder(root='val',
                                            transform=data_transform)
             loader = torch.utils.data.DataLoader(test_dataset,
                                              batch_size=1, shuffle=False,
