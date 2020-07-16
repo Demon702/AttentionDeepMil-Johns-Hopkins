@@ -73,8 +73,9 @@ class Attention(nn.Module):
         A = self.attention(H)  # NxK
         G = self.gate(H)     # N*K
 
-        Gated_attention = self.weight(A) # N * K
-        # Gated_attention = self.weight(A)
+        # Gated_attention = self.weight(A * G) Gated_Attention
+
+        # Gated_attention = self.weight(A) Non_Gated Attention
         # print(Gated_attention.shape)
         Gated_attention = torch.transpose(Gated_attention, 1, 0)  # KxN
         Weights = F.softmax(Gated_attention, dim=1)  # softmax over N
