@@ -2,9 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
+# from resnet import resnet18
 from resnet_classifier import Resnet_Classifier
 class Attention(nn.Module):
-    def __init__(self):
+    def __init__(self , path = ""):
         super(Attention, self).__init__()
         self.L = 500
         self.D = 128
@@ -18,11 +19,15 @@ class Attention(nn.Module):
         #     nn.ReLU(),
         #     nn.MaxPool2d(2, stride=2)
         # )
-        # model_ft = Resnet_Classifier()
-        model_ft = models.resnet34(pretrained=True)
-        # model_ft.load_state_dict(torch.load("model_2"))
+        model_ft = Resnet_Classifier()
+        # model_ft = models.resnet34(pretrained=True)
+        if path!= "":
+            model_ft.load_state_dict(torch.load(path))
+        for param in model_ft.parameters():
+            param.requires_grad = False
         self.feature_extractor_part1 = model_ft
-        num_ftrs = self.feature_extractor_part1.fc.out_features
+        num_ftrs = model_ft.model_ft.fc.in_features
+        # num_ftrs = model_ft.fc.in_features
         # Here the size of each output sample is set to 2.
         # Alternatively, it can be generalized to nn.Linear(num_ftrs, len(class_names)).    
 
@@ -40,6 +45,7 @@ class Attention(nn.Module):
             nn.Sigmoid(),
         )
 
+        self.feature_extractor_part1.model_ft.fc  = self.feature_extractor_part2
         self.attention = nn.Sequential(
             nn.Linear(self.L, self.D),
             nn.Tanh()
@@ -53,38 +59,40 @@ class Attention(nn.Module):
         self.weight = nn.Linear(self.D , self.K)
 
         self.classifier = nn.Sequential(
-            nn.Linear(self.L*self.K, 1),
-            nn.Sigmoid()
+            nn.Linear(self.L*self.K, 2),
+            # nn.ReLU()
+            # nn.Sigmoid()
         )
 
     def forward(self, x):
-        # x = x.squeeze(0)
+        x = x.squeeze(0)
         # print(x.shape)
         # x = x[: , 1]
         # with torch.no_grad():
         H = self.feature_extractor_part1(x)
+        # for param in self.feature_extractor_part1.parameters():
+        #     print(param.requires_grad)
             # H = H[: , 1].unsqueeze(0)
             # H = torch.transpose(H , 0 , 1)
         # print(H.shape)
         # print(H.shape)
         # H = H.view(-1, 50 * 53 * 53)
-        H = self.feature_extractor_part2(H)  # NxL
+        # H = self.feature_extractor_part2(H)  # NxL
 
         A = self.attention(H)  # NxK
         G = self.gate(H)     # N*K
 
-        # Gated_attention = self.weight(A * G) Gated_Attention
-
-        # Gated_attention = self.weight(A) Non_Gated Attention
+        Gated_attention = self.weight(A *G) # N * K
+        # Gated_attention = self.weight(A)
         # print(Gated_attention.shape)
         Gated_attention = torch.transpose(Gated_attention, 1, 0)  # KxN
         Weights = F.softmax(Gated_attention, dim=1)  # softmax over N
         # print(Weights)
         Y_prob = torch.mm(Weights , H)  # KxL
         Y_prob = self.classifier(Y_prob)
-        preds = torch.ge(Y_prob, 0.5).float()
+        # preds = torch.ge(Y_prob, 0.5)
 
-        return Y_prob  , preds  , Weights , H
+        return Y_prob ,  Weights , H
 
     # AUXILIARY METHODS
     # def calculate_classification_error(self, X, Y):
